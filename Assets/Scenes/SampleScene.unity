@@ -275,7 +275,7 @@ MonoBehaviour:
   authToken: baddytoki
   captureWidth: 480
   captureHeight: 270
-  intervalSeconds: 3
+  intervalSeconds: 0.1
   jpegQuality: 85
 --- !u!1 &633817071
 GameObject:
