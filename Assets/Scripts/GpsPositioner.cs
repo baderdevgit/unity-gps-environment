@@ -43,13 +43,29 @@ public class GpsPositioner : MonoBehaviour
     private void OnEnable()
     {
         if (receiver != null)
+        {
             receiver.OnGpsFixReceived += HandleFix;
+            receiver.OnResetRequested += HandleReset;
+        }
     }
 
     private void OnDisable()
     {
         if (receiver != null)
+        {
             receiver.OnGpsFixReceived -= HandleFix;
+            receiver.OnResetRequested -= HandleReset;
+        }
+    }
+
+    // Re-anchors the origin to wherever the next fix comes in, and snaps
+    // immediately back to (0,0,0) rather than gliding there.
+    private void HandleReset()
+    {
+        Debug.Log("GpsPositioner: reset received, re-anchoring origin.");
+        _originSet = false;
+        _targetPosition = new Vector3(0, transform.position.y, 0);
+        transform.position = _targetPosition;
     }
 
     private void HandleFix(GpsData fix)

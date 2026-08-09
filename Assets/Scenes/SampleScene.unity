@@ -131,6 +131,7 @@ GameObject:
   - component: {fileID: 330585545}
   - component: {fileID: 330585544}
   - component: {fileID: 330585547}
+  - component: {fileID: 330585548}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -206,7 +207,7 @@ Transform:
   m_GameObject: {fileID: 330585543}
   serializedVersion: 2
   m_LocalRotation: {x: 0.28476825, y: 0, z: 0, w: 0.9585964}
-  m_LocalPosition: {x: 1.88, y: 9.1, z: -19.85}
+  m_LocalPosition: {x: -0.96, y: 9.1, z: -19.85}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -256,6 +257,26 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &330585548
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 330585543}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cc3b1fab5b1e21841a2ba8328f59523e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CameraSnapshotUploader
+  sourceCamera: {fileID: 330585545}
+  serverHost: 127.0.0.1
+  serverPort: 5003
+  authToken: baddytoki
+  captureWidth: 480
+  captureHeight: 270
+  intervalSeconds: 3
+  jpegQuality: 85
 --- !u!1 &633817071
 GameObject:
   m_ObjectHideFlags: 0
@@ -266,7 +287,6 @@ GameObject:
   m_Component:
   - component: {fileID: 633817075}
   - component: {fileID: 633817074}
-  - component: {fileID: 633817073}
   - component: {fileID: 633817072}
   m_Layer: 0
   m_Name: BirdEyeCam
@@ -319,14 +339,6 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
---- !u!81 &633817073
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 633817071}
-  m_Enabled: 1
 --- !u!20 &633817074
 Camera:
   m_ObjectHideFlags: 0
@@ -578,7 +590,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1041129754}
-  - component: {fileID: 1041129753}
   - component: {fileID: 1041129755}
   m_Layer: 0
   m_Name: Marker
@@ -587,19 +598,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1041129753
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1041129752}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 934509b077376404180489bd679b6feb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: '::'
-  _dataReceiver: {fileID: 1392488539}
 --- !u!4 &1041129754
 Transform:
   m_ObjectHideFlags: 0
@@ -609,7 +607,7 @@ Transform:
   m_GameObject: {fileID: 1041129752}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0, y: 0, z: -0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -740,7 +738,7 @@ Transform:
   m_GameObject: {fileID: 1221548822}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.93722, y: -0.68, z: -0.15521}
+  m_LocalPosition: {x: -0.08, y: -0.68, z: 0}
   m_LocalScale: {x: 25, y: 0.16, z: 25}
   m_ConstrainProportionsScale: 0
   m_Children: []

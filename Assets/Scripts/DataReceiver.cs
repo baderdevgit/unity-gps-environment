@@ -17,6 +17,14 @@ public struct GpsData
     public double timestamp;
 }
 
+// Control messages from the server (e.g. the mobile web UI's reset button)
+// carry a "type" field that GpsData lines never have.
+[Serializable]
+internal struct MessageEnvelope
+{
+    public string type;
+}
+
 // Attach to any GameObject. Connects to the C# server running on the same PC
 // and receives whatever data the server relayed from the Raspberry Pi.
 public class DataReceiver : MonoBehaviour
@@ -34,6 +42,10 @@ public class DataReceiver : MonoBehaviour
 
     // Fired on the main thread when a line successfully parses as a GpsFix.
     public event Action<GpsData> OnGpsFixReceived;
+
+    // Fired on the main thread when a {"type":"reset"} control message arrives
+    // (sent by the mobile web UI's Reset button).
+    public event Action OnResetRequested;
 
     private void Start()
     {
@@ -79,13 +91,21 @@ public class DataReceiver : MonoBehaviour
 
             try
             {
+                var envelope = JsonUtility.FromJson<MessageEnvelope>(line);
+                if (envelope.type == "reset")
+                {
+                    Debug.Log("DataReceiver: reset message received from server.");
+                    OnResetRequested?.Invoke();
+                    continue;
+                }
+
                 var fix = JsonUtility.FromJson<GpsData>(line);
                 OnGpsFixReceived?.Invoke(fix);
             }
             catch (ArgumentException)
             {
-                // Not a GpsFix-shaped JSON line; subscribers to OnDataReceived
-                // still got the raw text above.
+                // Not JSON at all; subscribers to OnDataReceived still got
+                // the raw text above.
             }
         }
     }
