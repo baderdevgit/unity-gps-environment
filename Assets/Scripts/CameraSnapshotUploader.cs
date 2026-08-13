@@ -18,6 +18,10 @@ public class CameraSnapshotUploader : MonoBehaviour
 
     private void Start()
     {
+        // Without this, Unity throttles rendering/coroutines whenever the
+        // window loses focus, which stalls snapshot capture entirely.
+        Application.runInBackground = true;
+
         if (sourceCamera == null)
             sourceCamera = Camera.main;
 
