@@ -47,6 +47,14 @@ public class DataReceiver : MonoBehaviour
     // (sent by the mobile web UI's Reset button).
     public event Action OnResetRequested;
 
+    // Fired on the main thread when a {"type":"place"} control message arrives
+    // (sent by the mobile web UI's Place Marker button).
+    public event Action OnPlaceMarkerRequested;
+
+    // Fired on the main thread when a {"type":"clear"} control message arrives
+    // (sent by the mobile web UI's Clear Markers button).
+    public event Action OnClearMarkersRequested;
+
     private void Start()
     {
         _running = true;
@@ -96,6 +104,18 @@ public class DataReceiver : MonoBehaviour
                 {
                     Debug.Log("DataReceiver: reset message received from server.");
                     OnResetRequested?.Invoke();
+                    continue;
+                }
+                if (envelope.type == "place")
+                {
+                    Debug.Log("DataReceiver: place marker message received from server.");
+                    OnPlaceMarkerRequested?.Invoke();
+                    continue;
+                }
+                if (envelope.type == "clear")
+                {
+                    Debug.Log("DataReceiver: clear markers message received from server.");
+                    OnClearMarkersRequested?.Invoke();
                     continue;
                 }
 

@@ -734,6 +734,7 @@ GameObject:
   - component: {fileID: 1392488540}
   - component: {fileID: 1392488539}
   - component: {fileID: 1392488541}
+  - component: {fileID: 1392488542}
   m_Layer: 0
   m_Name: DataReceiver
   m_TagString: Untagged
@@ -790,6 +791,21 @@ MonoBehaviour:
   captureHeight: 270
   intervalSeconds: 0.1
   jpegQuality: 85
+--- !u!114 &1392488542
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1392488538}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: df85917f8a8f46b4297e0e1ef5f11a58, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MarkerPlacer
+  receiver: {fileID: 1392488539}
+  target: {fileID: 1041129754}
+  prefab: {fileID: 1036266260446979452, guid: 15ba754a97153ad488e132a65500248c, type: 3}
 --- !u!1 &1541202134
 GameObject:
   m_ObjectHideFlags: 0
