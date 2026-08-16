@@ -115,7 +115,8 @@ namespace ReplaySystem
         // playback/UI objects themselves.
         private bool ShouldSkip(Transform t)
         {
-            return t.GetComponent<SceneRecorder>() != null
+            return t.GetComponent<FreeFlyCamera>() != null
+                || t.GetComponent<SceneRecorder>() != null
                 || t.GetComponent<ScenePlayback>() != null
                 || t.GetComponent<ReplayUI>() != null;
         }
