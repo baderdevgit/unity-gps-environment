@@ -7,11 +7,15 @@ using UnityEngine.SceneManagement;
 
 namespace ReplaySystem
 {
+    public enum SceneFrameEventType { Update, Spawn, Despawn }
+
     [Serializable]
     public struct ScenePoseFrame
     {
         public double timestamp;
         public string path;   // full hierarchy path, e.g. "Marker/Cube"
+        public SceneFrameEventType eventType;
+        public string prefabKey;   // only meaningful on Spawn - see ReplayPrefabSource.cs
         public Vector3 position;
         public Quaternion rotation;
     }
@@ -38,6 +42,7 @@ namespace ReplaySystem
         private StreamWriter _writer;
         private double _sessionStartTime;
         private float _recordTimer;
+        private HashSet<string> _previousPaths = new HashSet<string>();
         public bool IsRecording { get; private set; }
         public string CurrentFilePath { get; private set; }
 
@@ -83,6 +88,7 @@ namespace ReplaySystem
             _writer = new StreamWriter(CurrentFilePath, append: false, Encoding.UTF8) { AutoFlush = false };
             _sessionStartTime = Time.realtimeSinceStartupAsDouble;
             _recordTimer = 0f;
+            _previousPaths.Clear();
             IsRecording = true;
 
             Debug.Log($"[SceneRecorder] Recording to {CurrentFilePath}");
@@ -111,19 +117,60 @@ namespace ReplaySystem
             var transforms = new List<Transform>();
             CollectAll(transforms);
 
+            var currentPaths = new HashSet<string>();
             foreach (var t in transforms)
             {
-                var frame = new ScenePoseFrame
+                string path = GetPath(t);
+                currentPaths.Add(path);
+
+                // New this tick (and not just the very first tick of the whole
+                // recording) - emit an explicit Spawn event so ScenePlayback can
+                // recreate it later instead of expecting to find it already there.
+                if (!_previousPaths.Contains(path) && _previousPaths.Count > 0)
+                {
+                    var source = t.GetComponent<ReplayPrefabSource>();
+                    WriteFrame(new ScenePoseFrame
+                    {
+                        timestamp = timestamp,
+                        path = path,
+                        eventType = SceneFrameEventType.Spawn,
+                        prefabKey = source != null ? source.prefabKey : null,
+                        position = t.position,
+                        rotation = t.rotation
+                    });
+                }
+
+                WriteFrame(new ScenePoseFrame
                 {
                     timestamp = timestamp,
-                    path = GetPath(t),
+                    path = path,
+                    eventType = SceneFrameEventType.Update,
                     position = t.position,
                     rotation = t.rotation
-                };
-                _writer.WriteLine(JsonUtility.ToJson(frame));
+                });
             }
 
+            foreach (var oldPath in _previousPaths)
+            {
+                if (!currentPaths.Contains(oldPath))
+                {
+                    WriteFrame(new ScenePoseFrame
+                    {
+                        timestamp = timestamp,
+                        path = oldPath,
+                        eventType = SceneFrameEventType.Despawn
+                    });
+                }
+            }
+
+            _previousPaths = currentPaths;
+
             if (Time.frameCount % 30 == 0) _writer.Flush();
+        }
+
+        private void WriteFrame(ScenePoseFrame frame)
+        {
+            _writer.WriteLine(JsonUtility.ToJson(frame));
         }
 
         private void CollectAll(List<Transform> result)

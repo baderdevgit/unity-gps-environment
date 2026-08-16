@@ -436,7 +436,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ReplaySystem.SceneRecorder
   subFolder: Sessions
   recordFps: 60
-  receiver: {fileID: 0}
+  receiver: {fileID: 1392488539}
 --- !u!114 &642972130
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -452,6 +452,9 @@ MonoBehaviour:
   playbackSpeed: 1
   isPlaying: 0
   normalizedTime: 0
+  prefabs:
+  - key: pin
+    prefab: {fileID: 1036266260446979452, guid: 15ba754a97153ad488e132a65500248c, type: 3}
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0

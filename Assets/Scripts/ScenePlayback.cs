@@ -7,12 +7,21 @@ using UnityEngine.SceneManagement;
 
 namespace ReplaySystem
 {
+    [Serializable]
+    public struct PrefabEntry
+    {
+        public string key;
+        public GameObject prefab;
+    }
+
     /// <summary>
-    /// Plays back a .jsonl session recorded by SceneRecorder by moving the
-    /// *existing* GameObjects already present in the currently loaded scene
-    /// (matched via SceneRecorder.GetPath, the same sibling-index-qualified
-    /// scheme used when recording) - nothing is instantiated or destroyed,
-    /// since SceneRecorder captured everything that was already there.
+    /// Plays back a .jsonl session recorded by SceneRecorder. Objects that
+    /// existed for the whole recording are found directly in the currently
+    /// loaded scene (matched via SceneRecorder.GetPath) and just moved -
+    /// nothing is instantiated for them. Objects that were dynamically
+    /// spawned/destroyed during the original recording (tagged with
+    /// ReplayPrefabSource) are instantiated/destroyed again here as scrubbing
+    /// crosses their recorded spawn/despawn moments, in either direction.
     /// </summary>
     public class ScenePlayback : MonoBehaviour
     {
@@ -20,8 +29,33 @@ namespace ReplaySystem
         public bool isPlaying;
         [Range(0f, 1f)] public float normalizedTime;
 
-        private Dictionary<string, List<ScenePoseFrame>> _tracks = new Dictionary<string, List<ScenePoseFrame>>();
-        private Dictionary<string, Transform> _targets = new Dictionary<string, Transform>();
+        [Tooltip("Prefab lookup for objects that were spawned/destroyed during " +
+                 "the original recording (tagged with ReplayPrefabSource). Objects " +
+                 "that existed for the whole recording don't need an entry here - " +
+                 "they're found directly in the current scene instead.")]
+        public List<PrefabEntry> prefabs = new List<PrefabEntry>();
+
+        // True for as long as ScenePlayback has control of at least one object.
+        // Gameplay scripts (e.g. collision handlers) should check this and skip
+        // their normal logic while it's true, since movement here is replay,
+        // not a real simulation - e.g.:
+        //   void OnCollisionEnter(Collision c) {
+        //       if (ScenePlayback.IsPlayingBack) return;
+        //       ...
+        //   }
+        public static bool IsPlayingBack { get; private set; }
+
+        private class TrackedEntity
+        {
+            public string prefabKey;
+            public bool everSpawned; // has an explicit Spawn event - i.e. wasn't there from the start
+            public double? despawnTime;
+            public List<ScenePoseFrame> updates = new List<ScenePoseFrame>();
+            public Transform existingTransform; // set if found already in the scene (pre-existing object)
+            public GameObject spawnedInstance;  // set once instantiated for a dynamic object
+        }
+
+        private readonly Dictionary<string, TrackedEntity> _entities = new Dictionary<string, TrackedEntity>();
         private double _baseTime;
         private double _duration;
         private double _currentTime;
@@ -48,42 +82,61 @@ namespace ReplaySystem
                 return false;
             }
 
-            ReleaseTargets();
-
-            _tracks.Clear();
-            _targets.Clear();
+            ReleaseAll();
+            _entities.Clear();
             double minT = double.MaxValue, maxT = double.MinValue;
 
             foreach (var f in frames)
             {
-                if (!_tracks.TryGetValue(f.path, out var list))
+                if (!_entities.TryGetValue(f.path, out var entity))
                 {
-                    list = new List<ScenePoseFrame>();
-                    _tracks[f.path] = list;
+                    entity = new TrackedEntity();
+                    _entities[f.path] = entity;
                 }
-                list.Add(f);
+
+                switch (f.eventType)
+                {
+                    case SceneFrameEventType.Spawn:
+                        entity.everSpawned = true;
+                        entity.prefabKey = f.prefabKey;
+                        entity.updates.Add(f);
+                        break;
+                    case SceneFrameEventType.Despawn:
+                        entity.despawnTime = f.timestamp;
+                        break;
+                    default:
+                        entity.updates.Add(f);
+                        break;
+                }
+
                 if (f.timestamp < minT) minT = f.timestamp;
                 if (f.timestamp > maxT) maxT = f.timestamp;
             }
 
             var currentPaths = BuildCurrentPathMap();
-
             int missing = 0;
-            foreach (var path in _tracks.Keys)
+            foreach (var kvp in _entities)
             {
-                _tracks[path].Sort((a, b) => a.timestamp.CompareTo(b.timestamp));
-                if (currentPaths.TryGetValue(path, out var t))
-                    _targets[path] = t;
+                kvp.Value.updates.Sort((a, b) => a.timestamp.CompareTo(b.timestamp));
+                if (kvp.Value.everSpawned)
+                    continue; // dynamic - instantiated on demand in ApplyAt, not found now
+
+                if (currentPaths.TryGetValue(kvp.Key, out var t))
+                {
+                    kvp.Value.existingTransform = t;
+                    var positioner = t.GetComponent<GpsPositioner>();
+                    if (positioner != null) positioner.enabled = false;
+                }
                 else
+                {
                     missing++;
+                }
             }
             if (missing > 0)
-                Debug.LogWarning($"[ScenePlayback] {missing} recorded object(s) not found in the current scene " +
-                                  "(renamed/moved/deleted/never instantiated this session?) - they'll be skipped.");
+                Debug.LogWarning($"[ScenePlayback] {missing} recorded object(s) present for the whole original " +
+                                  "recording were not found in the current scene - they'll be skipped.");
 
-            // Any script still driving one of these Transforms live (e.g.
-            // GpsPositioner) would otherwise overwrite playback every frame.
-            TakeControlOfTargets();
+            IsPlayingBack = true;
 
             _baseTime = minT;
             _duration = maxT - minT;
@@ -108,28 +161,6 @@ namespace ReplaySystem
                 CollectRecursive(t.GetChild(i), map);
         }
 
-        // Disables GpsPositioner on anything ScenePlayback is now driving, so
-        // the two don't fight over the same Transform every frame - position
-        // would otherwise always lose (GpsPositioner hard-assigns it, no blend).
-        private void TakeControlOfTargets()
-        {
-            foreach (var t in _targets.Values)
-            {
-                var positioner = t.GetComponent<GpsPositioner>();
-                if (positioner != null) positioner.enabled = false;
-            }
-        }
-
-        private void ReleaseTargets()
-        {
-            foreach (var t in _targets.Values)
-            {
-                if (t == null) continue;
-                var positioner = t.GetComponent<GpsPositioner>();
-                if (positioner != null) positioner.enabled = true;
-            }
-        }
-
         public void Play() => isPlaying = true;
         public void Pause() => isPlaying = false;
 
@@ -144,7 +175,7 @@ namespace ReplaySystem
 
         private void Update()
         {
-            if (!isPlaying || _tracks.Count == 0) return;
+            if (!isPlaying || _entities.Count == 0) return;
 
             _currentTime += Time.deltaTime * playbackSpeed;
             if (_currentTime >= _duration)
@@ -166,28 +197,84 @@ namespace ReplaySystem
         {
             double absoluteT = _baseTime + t;
 
-            foreach (var kvp in _targets)
+            foreach (var entity in _entities.Values)
             {
-                var target = kvp.Value;
-                if (target == null) continue;
+                Transform target;
 
-                var frames = _tracks[kvp.Key];
-                int i = frames.FindLastIndex(f => f.timestamp <= absoluteT);
-                if (i < 0) i = 0;
-                int j = Math.Min(i + 1, frames.Count - 1);
+                if (!entity.everSpawned)
+                {
+                    target = entity.existingTransform;
+                    if (target == null || entity.updates.Count == 0) continue;
+                }
+                else
+                {
+                    double spawnTime = entity.updates.Count > 0 ? entity.updates[0].timestamp : double.MaxValue;
+                    bool shouldExist = absoluteT >= spawnTime &&
+                                        (!entity.despawnTime.HasValue || absoluteT < entity.despawnTime.Value);
 
-                var a = frames[i];
-                var b = frames[j];
+                    if (shouldExist && entity.spawnedInstance == null)
+                        entity.spawnedInstance = SpawnFor(entity);
+                    else if (!shouldExist && entity.spawnedInstance != null)
+                    {
+                        Destroy(entity.spawnedInstance);
+                        entity.spawnedInstance = null;
+                    }
 
-                float lerp = 0f;
-                if (b.timestamp > a.timestamp)
-                    lerp = Mathf.InverseLerp((float)a.timestamp, (float)b.timestamp, (float)absoluteT);
+                    if (!shouldExist || entity.spawnedInstance == null || entity.updates.Count == 0) continue;
+                    target = entity.spawnedInstance.transform;
+                }
 
-                target.position = Vector3.Lerp(a.position, b.position, lerp);
-                target.rotation = Quaternion.Slerp(a.rotation, b.rotation, lerp);
+                ApplyInterpolatedPose(entity.updates, absoluteT, target);
             }
         }
 
-        private void OnDestroy() => ReleaseTargets();
+        private void ApplyInterpolatedPose(List<ScenePoseFrame> frames, double absoluteT, Transform target)
+        {
+            int i = frames.FindLastIndex(f => f.timestamp <= absoluteT);
+            if (i < 0) i = 0;
+            int j = Math.Min(i + 1, frames.Count - 1);
+
+            var a = frames[i];
+            var b = frames[j];
+
+            float lerp = 0f;
+            if (b.timestamp > a.timestamp)
+                lerp = Mathf.InverseLerp((float)a.timestamp, (float)b.timestamp, (float)absoluteT);
+
+            target.position = Vector3.Lerp(a.position, b.position, lerp);
+            target.rotation = Quaternion.Slerp(a.rotation, b.rotation, lerp);
+        }
+
+        private GameObject SpawnFor(TrackedEntity entity)
+        {
+            var entry = prefabs.FirstOrDefault(p => p.key == entity.prefabKey);
+            if (entry.prefab == null)
+            {
+                Debug.LogWarning($"[ScenePlayback] No prefab registered for key '{entity.prefabKey}' - " +
+                                  "can't recreate this object during playback.");
+                return null;
+            }
+            var go = Instantiate(entry.prefab);
+            go.name = "(replay) " + entry.prefab.name;
+            return go;
+        }
+
+        private void ReleaseAll()
+        {
+            IsPlayingBack = false;
+            foreach (var entity in _entities.Values)
+            {
+                if (entity.existingTransform != null)
+                {
+                    var positioner = entity.existingTransform.GetComponent<GpsPositioner>();
+                    if (positioner != null) positioner.enabled = true;
+                }
+                if (entity.spawnedInstance != null)
+                    Destroy(entity.spawnedInstance);
+                entity.spawnedInstance = null;
+            }
+        }
+
+        private void OnDestroy() => ReleaseAll();
     }
 }

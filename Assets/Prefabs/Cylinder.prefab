@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 1243911978778957259}
   - component: {fileID: 2645983292549552791}
   - component: {fileID: 1286361671525145506}
+  - component: {fileID: 2730092631748156185}
   m_Layer: 0
   m_Name: Cylinder
   m_TagString: Untagged
@@ -114,3 +115,16 @@ CapsuleCollider:
   m_Height: 2
   m_Direction: 1
   m_Center: {x: 0.000000059604645, y: 0, z: -0.00000008940697}
+--- !u!114 &2730092631748156185
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1036266260446979452}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a59b8b06cecdb243adae867a915dbbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ReplaySystem.ReplayPrefabSource
+  prefabKey: pin
