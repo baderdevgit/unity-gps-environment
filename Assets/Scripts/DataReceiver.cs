@@ -72,6 +72,14 @@ public class DataReceiver : MonoBehaviour
     // arrives (~10Hz from gps.py's runImuLoop, faster than GPS fixes).
     public event Action<double> OnImuHeadingReceived;
 
+    // Fired on the main thread when a {"type":"start-recording"} control
+    // message arrives (sent by the mobile web UI's Start Recording button).
+    public event Action OnStartRecordingRequested;
+
+    // Fired on the main thread when a {"type":"stop-recording"} control
+    // message arrives (sent by the mobile web UI's Stop Recording button).
+    public event Action OnStopRecordingRequested;
+
     private void Start()
     {
         _running = true;
@@ -139,6 +147,18 @@ public class DataReceiver : MonoBehaviour
                 {
                     var imu = JsonUtility.FromJson<ImuData>(line);
                     OnImuHeadingReceived?.Invoke(imu.heading);
+                    continue;
+                }
+                if (envelope.type == "start-recording")
+                {
+                    Debug.Log("DataReceiver: start recording message received from server.");
+                    OnStartRecordingRequested?.Invoke();
+                    continue;
+                }
+                if (envelope.type == "stop-recording")
+                {
+                    Debug.Log("DataReceiver: stop recording message received from server.");
+                    OnStopRecordingRequested?.Invoke();
                     continue;
                 }
 

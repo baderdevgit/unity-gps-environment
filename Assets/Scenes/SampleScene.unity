@@ -415,7 +415,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 642972126}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 52e89452820ead24692cb8f55eacf340, type: 3}
   m_Name: 
@@ -436,6 +436,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ReplaySystem.SceneRecorder
   subFolder: Sessions
   recordFps: 60
+  receiver: {fileID: 0}
 --- !u!114 &642972130
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -664,9 +665,10 @@ MonoBehaviour:
   useFirstFixAsOrigin: 1
   originLat: 0
   originLon: 0
-  moveSpeed: 5
+  positionInterpolationDelay: 1
   useAltitude: 0
   useHeadingRotation: 1
+  rotateSpeed: 10
 --- !u!1 &1221548822
 GameObject:
   m_ObjectHideFlags: 0

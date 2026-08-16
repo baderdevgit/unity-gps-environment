@@ -31,11 +31,42 @@ namespace ReplaySystem
                  "output and keeps file size reasonable versus recording every frame.")]
         public float recordFps = 30f;
 
+        [Tooltip("Optional. If set (or found in the scene), Start/Stop Recording " +
+                 "can also be triggered from the mobile web UI.")]
+        [SerializeField] private DataReceiver receiver;
+
         private StreamWriter _writer;
         private double _sessionStartTime;
         private float _recordTimer;
         public bool IsRecording { get; private set; }
         public string CurrentFilePath { get; private set; }
+
+        private void Awake()
+        {
+            if (receiver == null)
+                receiver = FindObjectOfType<DataReceiver>();
+        }
+
+        private void OnEnable()
+        {
+            if (receiver != null)
+            {
+                receiver.OnStartRecordingRequested += HandleStartRecordingRequested;
+                receiver.OnStopRecordingRequested += HandleStopRecordingRequested;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (receiver != null)
+            {
+                receiver.OnStartRecordingRequested -= HandleStartRecordingRequested;
+                receiver.OnStopRecordingRequested -= HandleStopRecordingRequested;
+            }
+        }
+
+        private void HandleStartRecordingRequested() => StartRecording();
+        private void HandleStopRecordingRequested() => StopRecording();
 
         public void StartRecording(string sessionName = null)
         {
@@ -121,10 +152,16 @@ namespace ReplaySystem
                 || t.GetComponent<ReplayUI>() != null;
         }
 
-        private static string GetPath(Transform t)
+        // Sibling index is included so that multiple instances sharing the same
+        // name (e.g. several "Cylinder(Clone)" from repeated Instantiate calls)
+        // still get distinct, stable paths instead of colliding under one key.
+        // ScenePlayback uses this exact same scheme to find objects again -
+        // don't change one without the other.
+        public static string GetPath(Transform t)
         {
-            if (t.parent == null) return t.name;
-            return GetPath(t.parent) + "/" + t.name;
+            string segment = t.name + "#" + t.GetSiblingIndex();
+            if (t.parent == null) return segment;
+            return GetPath(t.parent) + "/" + segment;
         }
 
         private void OnApplicationQuit() => StopRecording();

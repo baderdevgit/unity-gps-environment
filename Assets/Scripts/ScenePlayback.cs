@@ -3,13 +3,15 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace ReplaySystem
 {
     /// <summary>
     /// Plays back a .jsonl session recorded by SceneRecorder by moving the
     /// *existing* GameObjects already present in the currently loaded scene
-    /// (matched by hierarchy path) - nothing is instantiated or destroyed,
+    /// (matched via SceneRecorder.GetPath, the same sibling-index-qualified
+    /// scheme used when recording) - nothing is instantiated or destroyed,
     /// since SceneRecorder captured everything that was already there.
     /// </summary>
     public class ScenePlayback : MonoBehaviour
@@ -46,6 +48,8 @@ namespace ReplaySystem
                 return false;
             }
 
+            ReleaseTargets();
+
             _tracks.Clear();
             _targets.Clear();
             double minT = double.MaxValue, maxT = double.MinValue;
@@ -62,25 +66,68 @@ namespace ReplaySystem
                 if (f.timestamp > maxT) maxT = f.timestamp;
             }
 
+            var currentPaths = BuildCurrentPathMap();
+
             int missing = 0;
             foreach (var path in _tracks.Keys)
             {
                 _tracks[path].Sort((a, b) => a.timestamp.CompareTo(b.timestamp));
-                var found = GameObject.Find(path);
-                if (found != null)
-                    _targets[path] = found.transform;
+                if (currentPaths.TryGetValue(path, out var t))
+                    _targets[path] = t;
                 else
                     missing++;
             }
             if (missing > 0)
                 Debug.LogWarning($"[ScenePlayback] {missing} recorded object(s) not found in the current scene " +
-                                  "(renamed/moved/deleted since recording?) - they'll be skipped during playback.");
+                                  "(renamed/moved/deleted/never instantiated this session?) - they'll be skipped.");
+
+            // Any script still driving one of these Transforms live (e.g.
+            // GpsPositioner) would otherwise overwrite playback every frame.
+            TakeControlOfTargets();
 
             _baseTime = minT;
             _duration = maxT - minT;
             _currentTime = 0;
             ApplyAt(0);
             return true;
+        }
+
+        private Dictionary<string, Transform> BuildCurrentPathMap()
+        {
+            var map = new Dictionary<string, Transform>();
+            var scene = SceneManager.GetActiveScene();
+            foreach (var root in scene.GetRootGameObjects())
+                CollectRecursive(root.transform, map);
+            return map;
+        }
+
+        private void CollectRecursive(Transform t, Dictionary<string, Transform> map)
+        {
+            map[SceneRecorder.GetPath(t)] = t;
+            for (int i = 0; i < t.childCount; i++)
+                CollectRecursive(t.GetChild(i), map);
+        }
+
+        // Disables GpsPositioner on anything ScenePlayback is now driving, so
+        // the two don't fight over the same Transform every frame - position
+        // would otherwise always lose (GpsPositioner hard-assigns it, no blend).
+        private void TakeControlOfTargets()
+        {
+            foreach (var t in _targets.Values)
+            {
+                var positioner = t.GetComponent<GpsPositioner>();
+                if (positioner != null) positioner.enabled = false;
+            }
+        }
+
+        private void ReleaseTargets()
+        {
+            foreach (var t in _targets.Values)
+            {
+                if (t == null) continue;
+                var positioner = t.GetComponent<GpsPositioner>();
+                if (positioner != null) positioner.enabled = true;
+            }
         }
 
         public void Play() => isPlaying = true;
@@ -140,5 +187,7 @@ namespace ReplaySystem
                 target.rotation = Quaternion.Slerp(a.rotation, b.rotation, lerp);
             }
         }
+
+        private void OnDestroy() => ReleaseTargets();
     }
 }
