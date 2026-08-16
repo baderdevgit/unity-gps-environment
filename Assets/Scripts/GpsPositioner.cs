@@ -23,11 +23,16 @@ public class GpsPositioner : MonoBehaviour
     [Tooltip("Use fix.alt for height instead of keeping the object's current Y.")]
     [SerializeField] private bool useAltitude = false;
 
+    [Tooltip("Rotate to face the Pi's IMU-derived heading. Rotation only - " +
+             "position still comes purely from GPS fixes, no dead-reckoning.")]
+    [SerializeField] private bool useHeadingRotation = true;
+
     private const double MetersPerDegreeLat = 111320.0;
 
     private bool _originSet;
     private double _originAlt;
     private Vector3 _targetPosition;
+    private float _headingDeg;
 
     private void Awake()
     {
@@ -46,6 +51,7 @@ public class GpsPositioner : MonoBehaviour
         {
             receiver.OnGpsFixReceived += HandleFix;
             receiver.OnResetRequested += HandleReset;
+            receiver.OnImuHeadingReceived += HandleImuHeading;
         }
     }
 
@@ -55,7 +61,17 @@ public class GpsPositioner : MonoBehaviour
         {
             receiver.OnGpsFixReceived -= HandleFix;
             receiver.OnResetRequested -= HandleReset;
+            receiver.OnImuHeadingReceived -= HandleImuHeading;
         }
+    }
+
+    // Updates heading at ~10Hz (independent of the ~1Hz GPS fix rate) so
+    // rotation tracks the IMU closely; HandleFix below still periodically
+    // overwrites this with the GPS-corrected value to prevent gyro drift.
+    private void HandleImuHeading(double heading)
+    {
+        if (useHeadingRotation)
+            _headingDeg = (float)heading;
     }
 
     // Re-anchors the origin to wherever the next fix comes in, and snaps
@@ -85,10 +101,16 @@ public class GpsPositioner : MonoBehaviour
         float y = useAltitude ? (float)(fix.alt - _originAlt) : transform.position.y;
 
         _targetPosition = new Vector3(x, y, z);
+
+        if (useHeadingRotation)
+            _headingDeg = (float)fix.heading;
     }
 
     private void Update()
     {
+        if (useHeadingRotation)
+            transform.rotation = Quaternion.Euler(0, _headingDeg, 0);
+
         transform.position = Vector3.Lerp(transform.position, _targetPosition, moveSpeed * Time.deltaTime);
     }
 }

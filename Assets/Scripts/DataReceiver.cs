@@ -14,6 +14,10 @@ public struct GpsData
     public double alt;
     public int fixQuality;
     public string fixStatus;
+    // Compass degrees (0=North, 90=East), from the Pi's IMU, re-anchored to
+    // GPS course whenever the rover has moved far enough for that to be
+    // reliable. 0 if no IMU is attached on the Pi.
+    public double heading;
     public double timestamp;
 }
 
@@ -23,6 +27,15 @@ public struct GpsData
 internal struct MessageEnvelope
 {
     public string type;
+}
+
+// Sent by gps.py's runImuLoop() at ~10Hz, independent of the ~1Hz GPS fix
+// rate, so heading can update much faster than position does.
+[Serializable]
+internal struct ImuData
+{
+    public double heading;
+    public double timestamp;
 }
 
 // Attach to any GameObject. Connects to the C# server running on the same PC
@@ -54,6 +67,10 @@ public class DataReceiver : MonoBehaviour
     // Fired on the main thread when a {"type":"clear"} control message arrives
     // (sent by the mobile web UI's Clear Markers button).
     public event Action OnClearMarkersRequested;
+
+    // Fired on the main thread when a {"type":"imu"} heading-only message
+    // arrives (~10Hz from gps.py's runImuLoop, faster than GPS fixes).
+    public event Action<double> OnImuHeadingReceived;
 
     private void Start()
     {
@@ -116,6 +133,12 @@ public class DataReceiver : MonoBehaviour
                 {
                     Debug.Log("DataReceiver: clear markers message received from server.");
                     OnClearMarkersRequested?.Invoke();
+                    continue;
+                }
+                if (envelope.type == "imu")
+                {
+                    var imu = JsonUtility.FromJson<ImuData>(line);
+                    OnImuHeadingReceived?.Invoke(imu.heading);
                     continue;
                 }
 
