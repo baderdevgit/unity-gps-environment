@@ -38,6 +38,14 @@ internal struct ImuData
     public double timestamp;
 }
 
+// Sent by the mobile web UI's grid size slider ({"type":"grid-size","cells":N}).
+[Serializable]
+internal struct GridSizeData
+{
+    public string type;
+    public int cells;
+}
+
 // Attach to any GameObject. Connects to the C# server running on the same PC
 // and receives whatever data the server relayed from the Raspberry Pi.
 public class DataReceiver : MonoBehaviour
@@ -79,6 +87,10 @@ public class DataReceiver : MonoBehaviour
     // Fired on the main thread when a {"type":"stop-recording"} control
     // message arrives (sent by the mobile web UI's Stop Recording button).
     public event Action OnStopRecordingRequested;
+
+    // Fired on the main thread when a {"type":"grid-size"} control message
+    // arrives (sent by the mobile web UI's grid size slider).
+    public event Action<int> OnGridSizeChanged;
 
     private void Start()
     {
@@ -159,6 +171,13 @@ public class DataReceiver : MonoBehaviour
                 {
                     Debug.Log("DataReceiver: stop recording message received from server.");
                     OnStopRecordingRequested?.Invoke();
+                    continue;
+                }
+                if (envelope.type == "grid-size")
+                {
+                    var gridSize = JsonUtility.FromJson<GridSizeData>(line);
+                    Debug.Log($"DataReceiver: grid-size message received from server ({gridSize.cells}).");
+                    OnGridSizeChanged?.Invoke(gridSize.cells);
                     continue;
                 }
 
