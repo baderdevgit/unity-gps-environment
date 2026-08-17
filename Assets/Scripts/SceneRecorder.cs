@@ -196,13 +196,19 @@ namespace ReplaySystem
         // same bones every frame. The model still moves correctly as a child
         // of whatever's actually tracked (e.g. "Marker"), just via normal
         // parent-child inheritance instead of its own explicit track.
+        //
+        // Grid3D's generated "GridLine" children are excluded for the same
+        // reason: they're static relative to the grid, so they already move/
+        // rotate correctly as children of the tracked Grid3D transform - no
+        // need to record dozens of line Transforms individually every frame.
         private bool ShouldSkip(Transform t)
         {
             return t.GetComponent<FreeFlyCamera>() != null
                 || t.GetComponent<SceneRecorder>() != null
                 || t.GetComponent<ScenePlayback>() != null
                 || t.GetComponent<ReplayUI>() != null
-                || t.GetComponent<Animator>() != null;
+                || t.GetComponent<Animator>() != null
+                || (t.parent != null && t.parent.GetComponent<Grid3D>() != null);
         }
 
         // Sibling index is included so that multiple instances sharing the same

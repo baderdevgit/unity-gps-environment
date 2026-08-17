@@ -33,6 +33,13 @@ public class GpsPositioner : MonoBehaviour
     [Tooltip("How quickly the GameObject turns to face the new heading.")]
     [SerializeField] private float rotateSpeed = 10f;
 
+    [Tooltip("Optional. On reset, this Transform's rotation is set to whichever " +
+             "way the player was actually facing (real-world heading) at that " +
+             "moment - e.g. a floor/grid object - so the scene's 'forward' " +
+             "lines up with the player's real facing direction instead of " +
+             "always being locked to true compass North.")]
+    [SerializeField] private Transform gridTransform;
+
     private const double MetersPerDegreeLat = 111320.0;
     private const int MaxBufferedSamples = 30;
 
@@ -44,7 +51,8 @@ public class GpsPositioner : MonoBehaviour
 
     private bool _originSet;
     private double _originAlt;
-    private float _headingDeg;
+    private float _headingDeg;             // compass heading, 0 = true North - drives the object's own facing directly, never reframed
+    private float _worldRotationOffsetDeg; // set at reset time from _headingDeg; used only to reframe POSITION, not facing
     private readonly List<PositionSample> _positionBuffer = new List<PositionSample>();
 
     private void Awake()
@@ -91,14 +99,27 @@ public class GpsPositioner : MonoBehaviour
     // immediately back to (0,0,0) rather than gliding there. Clears the
     // position buffer too, since old samples are in the pre-reset coordinate
     // space and would otherwise blend weirdly across the reset instant.
+    //
+    // Also captures whatever direction the player was actually facing
+    // (real-world compass heading) at this exact moment as the new "forward"
+    // for POSITION only - HandleFix below rotates future position offsets
+    // into this frame. The player's own facing rotation is left alone: it's
+    // an absolute world-space quantity (0=North) that's already correct
+    // regardless of any reset, so it must not be touched here. gridTransform
+    // (if assigned) is rotated to match so the visual floor/grid lines up.
     private void HandleReset()
     {
-        Debug.Log("GpsPositioner: reset received, re-anchoring origin.");
+        Debug.Log("GpsPositioner: reset received, re-anchoring origin and rotation.");
         _originSet = false;
+        _worldRotationOffsetDeg = _headingDeg;
+
         Vector3 resetPosition = new Vector3(0, transform.position.y, 0);
         _positionBuffer.Clear();
         _positionBuffer.Add(new PositionSample { time = Time.time, position = resetPosition });
         transform.position = resetPosition;
+
+        if (gridTransform != null)
+            gridTransform.rotation = Quaternion.Euler(0, _worldRotationOffsetDeg, 0);
     }
 
     private void HandleFix(GpsData fix)
@@ -113,11 +134,16 @@ public class GpsPositioner : MonoBehaviour
 
         double metersPerDegreeLon = MetersPerDegreeLat * Mathf.Cos((float)(originLat * Mathf.Deg2Rad));
 
-        float x = (float)((fix.lon - originLon) * metersPerDegreeLon);
-        float z = (float)((fix.lat - originLat) * MetersPerDegreeLat);
+        float xAbs = (float)((fix.lon - originLon) * metersPerDegreeLon);
+        float zAbs = (float)((fix.lat - originLat) * MetersPerDegreeLat);
         float y = useAltitude ? (float)(fix.alt - _originAlt) : transform.position.y;
 
-        _positionBuffer.Add(new PositionSample { time = Time.time, position = new Vector3(x, y, z) });
+        // Rotate the absolute (compass-aligned) offset into the current
+        // reset frame, so position stays consistent with whatever direction
+        // was set as "forward" at the last reset.
+        Vector3 rotated = Quaternion.Euler(0, -_worldRotationOffsetDeg, 0) * new Vector3(xAbs, y, zAbs);
+
+        _positionBuffer.Add(new PositionSample { time = Time.time, position = rotated });
         if (_positionBuffer.Count > MaxBufferedSamples)
             _positionBuffer.RemoveAt(0);
 

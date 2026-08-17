@@ -722,6 +722,7 @@ MonoBehaviour:
   useAltitude: 0
   useHeadingRotation: 1
   rotateSpeed: 10
+  gridTransform: {fileID: 81581889}
 --- !u!1 &1221548822
 GameObject:
   m_ObjectHideFlags: 0

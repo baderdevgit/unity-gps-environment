@@ -12,7 +12,11 @@ public class Grid3D : MonoBehaviour
     {
         float width = columns * cellSize;
         float height = rows * cellSize;
-        Vector3 origin = transform.position - new Vector3(width / 2f, 0, height / 2f);
+        // Local space, centered on this object - the parent transform's
+        // position/rotation is applied automatically every frame (see
+        // DrawLine's useWorldSpace = false), so the grid follows this
+        // object's rotation live with no need to redraw the lines.
+        Vector3 origin = new Vector3(-width / 2f, 0, -height / 2f);
 
         for (int x = 0; x <= columns; x++)
         {
@@ -32,14 +36,14 @@ public class Grid3D : MonoBehaviour
     void DrawLine(Vector3 start, Vector3 end)
     {
         GameObject lineObj = new GameObject("GridLine");
-        lineObj.transform.parent = transform;
+        lineObj.transform.SetParent(transform, false); // false = reset local transform to identity
         LineRenderer lr = lineObj.AddComponent<LineRenderer>();
         lr.material = lineMaterial;
         lr.startColor = lr.endColor = Color.black;
         lr.startWidth = lr.endWidth = lineWidth;
         lr.positionCount = 2;
+        lr.useWorldSpace = false;
         lr.SetPosition(0, start);
         lr.SetPosition(1, end);
-        lr.useWorldSpace = true;
     }
 }
