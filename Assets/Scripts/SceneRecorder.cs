@@ -189,14 +189,20 @@ namespace ReplaySystem
         }
 
         // Excludes the free-fly viewing camera (it's controlled live during
-        // playback, not something to play back itself) and the recorder/
-        // playback/UI objects themselves.
+        // playback, not something to play back itself), the recorder/playback/
+        // UI objects themselves, and anything with an Animator - a rigged
+        // character's skeleton can be 50+ bone Transforms, and recording/
+        // replaying them directly would fight the Animator for control of the
+        // same bones every frame. The model still moves correctly as a child
+        // of whatever's actually tracked (e.g. "Marker"), just via normal
+        // parent-child inheritance instead of its own explicit track.
         private bool ShouldSkip(Transform t)
         {
             return t.GetComponent<FreeFlyCamera>() != null
                 || t.GetComponent<SceneRecorder>() != null
                 || t.GetComponent<ScenePlayback>() != null
-                || t.GetComponent<ReplayUI>() != null;
+                || t.GetComponent<ReplayUI>() != null
+                || t.GetComponent<Animator>() != null;
         }
 
         // Sibling index is included so that multiple instances sharing the same

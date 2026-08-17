@@ -116,6 +116,13 @@ public class ReplayEditorWindow : EditorWindow
             else _playback.Play();
         }
 
+        if (GUILayout.Button("Release Control (back to live)"))
+        {
+            _playback.ReleaseControl();
+            _loadedFile = null;
+            _statusMessage = "Released - live scripts back in control.";
+        }
+
         EditorGUILayout.LabelField($"Time: {_playback.CurrentTime:0.0}s / {_playback.Duration:0.0}s");
         float newT = EditorGUILayout.Slider(_playback.normalizedTime, 0f, 1f);
         if (!Mathf.Approximately(newT, _playback.normalizedTime))

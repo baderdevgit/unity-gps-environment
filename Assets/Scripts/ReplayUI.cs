@@ -111,6 +111,13 @@ namespace ReplaySystem
                 else playback.Play();
             }
 
+            if (GUILayout.Button("Release Control (back to live)"))
+            {
+                playback.ReleaseControl();
+                _loadedFile = null;
+                _statusMessage = "Released - live scripts back in control.";
+            }
+
             GUILayout.Label($"Time: {playback.CurrentTime:0.0}s / {playback.Duration:0.0}s");
             float newT = GUILayout.HorizontalSlider(playback.normalizedTime, 0f, 1f);
             if (!Mathf.Approximately(newT, playback.normalizedTime))

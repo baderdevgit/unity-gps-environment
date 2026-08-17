@@ -173,6 +173,19 @@ namespace ReplaySystem
 
         public void SeekNormalized(float t) => Seek(t * _duration);
 
+        // Hands control back to live scripts (e.g. re-enables GpsPositioner)
+        // and forgets the currently loaded recording, without needing to load
+        // a different file or restart Play mode to get unstuck.
+        public void ReleaseControl()
+        {
+            ReleaseAll();
+            _entities.Clear();
+            isPlaying = false;
+            _currentTime = 0;
+            _duration = 0;
+            normalizedTime = 0;
+        }
+
         private void Update()
         {
             if (!isPlaying || _entities.Count == 0) return;
