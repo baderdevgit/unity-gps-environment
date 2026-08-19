@@ -19,6 +19,10 @@ public struct GpsData
     // reliable. 0 if no IMU is attached on the Pi.
     public double heading;
     public double timestamp;
+    // Increments once per fix on the Pi - lines up against gps.py's "[SEQ]
+    // Pi sending fix #N" and the server's "[SEQ] Server received fix #N" to
+    // isolate exactly which hop a given fix's delay happens on.
+    public int seq;
 }
 
 // Control messages from the server (e.g. the mobile web UI's reset button)
@@ -204,6 +208,7 @@ public class DataReceiver : MonoBehaviour
                 }
 
                 var fix = JsonUtility.FromJson<GpsData>(line);
+                Debug.Log($"[SEQ] Unity processed fix #{fix.seq} at {DateTime.UtcNow:HH:mm:ss.fff}");
                 LogIfStale(fix.timestamp, "gps");
                 OnGpsFixReceived?.Invoke(fix);
             }
