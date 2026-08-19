@@ -122,8 +122,19 @@ public class GpsPositioner : MonoBehaviour
             gridTransform.rotation = Quaternion.Euler(0, _worldRotationOffsetDeg, 0);
     }
 
+    private float _lastFixProcessedAt = -1f;
+
     private void HandleFix(GpsData fix)
     {
+        // Gap between fixes as GpsPositioner itself processes them, on
+        // Unity's own clock - if this is clean while position still looked
+        // stuck on screen, the bug is downstream of here (interpolation/
+        // rendering), not in message delivery, which every other [PERF]
+        // check so far has already covered.
+        if (_lastFixProcessedAt > 0f && Time.time - _lastFixProcessedAt > 2f)
+            Debug.LogWarning($"[PERF] GpsPositioner: {Time.time - _lastFixProcessedAt:F1}s since previous fix was processed.");
+        _lastFixProcessedAt = Time.time;
+
         if (!_originSet)
         {
             originLat = fix.lat;

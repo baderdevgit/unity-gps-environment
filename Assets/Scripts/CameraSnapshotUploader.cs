@@ -1,6 +1,8 @@
 using System.Collections;
+using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.Networking;
+using Debug = UnityEngine.Debug;
 
 // Periodically captures a Camera's view and uploads it as JPEG to the
 // server's /snapshot endpoint, so the mobile control page can show a
@@ -43,6 +45,15 @@ public class CameraSnapshotUploader : MonoBehaviour
             var previousTarget = sourceCamera.targetTexture;
             var previousActive = RenderTexture.active;
 
+            // Render()+ReadPixels()+EncodeToJPG() all run synchronously on
+            // the main thread, and ReadPixels (GPU->CPU readback) is a known
+            // frame-hitch source in Unity - unlike the upload itself (below),
+            // which yields through UnityWebRequest and never blocks. Timing
+            // this separately from the [PERF] frame-hitch check in
+            // DataReceiver isolates whether snapshot capture specifically is
+            // the cause of any hitch that shows up there.
+            var sw = Stopwatch.StartNew();
+
             sourceCamera.targetTexture = renderTexture;
             sourceCamera.Render();
             RenderTexture.active = renderTexture;
@@ -53,6 +64,10 @@ public class CameraSnapshotUploader : MonoBehaviour
             RenderTexture.active = previousActive;
 
             byte[] jpg = readTexture.EncodeToJPG(jpegQuality);
+            sw.Stop();
+            if (sw.ElapsedMilliseconds > 50)
+                Debug.LogWarning($"[PERF] Snapshot capture+encode took {sw.ElapsedMilliseconds}ms.");
+
             yield return Upload(jpg);
         }
     }

@@ -128,8 +128,29 @@ public class DataReceiver : MonoBehaviour
         }
     }
 
+    private float _lastQueueLogTime;
+
     private void Update()
     {
+        // Independent of anything network-related: if Unity's own frame time
+        // spikes (GC pause, disk I/O from SceneRecorder/snapshot capture,
+        // asset loading, etc.), the marker won't visibly move for that long
+        // even though every message arrived on schedule. This is the one
+        // thing none of the other [PERF] checks would catch. Skip frame 0,
+        // where deltaTime is meaningless.
+        if (Time.frameCount > 1 && Time.unscaledDeltaTime > 0.15f)
+            Debug.LogWarning($"[PERF] Frame hitch: {Time.unscaledDeltaTime * 1000f:F0}ms since last frame.");
+
+        // If this backs up, Unity's main thread (rendering, SceneRecorder's
+        // per-tick scene walk, etc.) can't keep up with incoming messages -
+        // a growing queue would show up here well before it's visible as
+        // "lag" on screen. Throttled to avoid log spam.
+        if (_incoming.Count > 10 && Time.time - _lastQueueLogTime > 2f)
+        {
+            Debug.LogWarning($"[PERF] DataReceiver backlog: {_incoming.Count} unprocessed messages queued.");
+            _lastQueueLogTime = Time.time;
+        }
+
         while (_incoming.TryDequeue(out var line))
         {
             OnDataReceived?.Invoke(line);
@@ -158,6 +179,7 @@ public class DataReceiver : MonoBehaviour
                 if (envelope.type == "imu")
                 {
                     var imu = JsonUtility.FromJson<ImuData>(line);
+                    LogIfStale(imu.timestamp, "imu");
                     OnImuHeadingReceived?.Invoke(imu.heading);
                     continue;
                 }
@@ -182,6 +204,7 @@ public class DataReceiver : MonoBehaviour
                 }
 
                 var fix = JsonUtility.FromJson<GpsData>(line);
+                LogIfStale(fix.timestamp, "gps");
                 OnGpsFixReceived?.Invoke(fix);
             }
             catch (ArgumentException)
@@ -190,6 +213,21 @@ public class DataReceiver : MonoBehaviour
                 // the raw text above.
             }
         }
+    }
+
+    // Every GPS/IMU message carries the Pi's own send-time (Unix seconds),
+    // so this gives the full Pi -> relay -> Unity latency for free, without
+    // needing clocks to be synced beyond roughly matching wall time. Large
+    // values point at the network/relay hop; if that hop's logs (server
+    // console [PERF] lines, gps.py's "[PERF] Relay send took...") are clean
+    // while this still climbs, the bottleneck is Unity's own main thread
+    // instead (see the queue-backlog warning above).
+    private void LogIfStale(double sourceUnixTime, string kind)
+    {
+        double nowUnixTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0;
+        double latency = nowUnixTime - sourceUnixTime;
+        if (latency > 0.5)
+            Debug.LogWarning($"[PERF] {kind} message was {latency:0.00}s old by the time Unity processed it.");
     }
 
     private void OnDestroy()

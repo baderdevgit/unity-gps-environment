@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Debug = UnityEngine.Debug;
 
 namespace ReplaySystem
 {
@@ -114,8 +116,16 @@ namespace ReplaySystem
             _recordTimer = 0f;
 
             double timestamp = Time.realtimeSinceStartupAsDouble - _sessionStartTime;
+            var sw = Stopwatch.StartNew();
             var transforms = new List<Transform>();
             CollectAll(transforms);
+            sw.Stop();
+            // This walk is O(every Transform in the scene), redone every
+            // tick - if it's climbing over the course of a long session
+            // (more markers/pins spawned in), that's a genuine, growing
+            // per-frame cost distinct from any network-side lag.
+            if (sw.ElapsedMilliseconds > 8)
+                Debug.LogWarning($"[PERF] SceneRecorder scene walk took {sw.ElapsedMilliseconds}ms over {transforms.Count} transforms.");
 
             var currentPaths = new HashSet<string>();
             foreach (var t in transforms)
