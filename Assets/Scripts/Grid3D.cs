@@ -33,10 +33,16 @@ public class Grid3D : MonoBehaviour
         Generate();
     }
 
-    // Rebuilds the grid at a new cell count (from the mobile UI's grid size
-    // slider). LineRenderer point counts aren't resizable in place, so this
-    // just clears the old lines and redraws from scratch.
-    private void HandleGridSizeChanged(int cells)
+    private void HandleGridSizeChanged(int cells) => SetCellCount(cells);
+
+    // Rebuilds the grid at a new cell count - from the mobile UI's slider
+    // live, or from ReplayEditorWindow/ReplayUI while reviewing a recording
+    // (grid size is never part of what's recorded/played back - see
+    // SceneRecorder's ShouldSkip - so this is safe to call at any time,
+    // including mid-scrub, independent of replay). LineRenderer point counts
+    // aren't resizable in place, so this just clears the old lines and
+    // redraws from scratch.
+    public void SetCellCount(int cells)
     {
         columns = rows = Mathf.Max(1, cells);
         Generate();

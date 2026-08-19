@@ -19,6 +19,7 @@ namespace ReplaySystem
     {
         [SerializeField] private SceneRecorder recorder;
         [SerializeField] private ScenePlayback playback;
+        [SerializeField] private Grid3D grid;
 
         private string _loadedFile;
         private string _statusMessage = "";
@@ -29,6 +30,7 @@ namespace ReplaySystem
         {
             if (recorder == null) recorder = FindObjectOfType<SceneRecorder>();
             if (playback == null) playback = FindObjectOfType<ScenePlayback>();
+            if (grid == null) grid = FindObjectOfType<Grid3D>();
             RefreshFileList();
         }
 
@@ -52,6 +54,9 @@ namespace ReplaySystem
 
             GUILayout.Space(10);
             DrawPlaybackControls();
+
+            GUILayout.Space(10);
+            DrawGridControls();
 
             GUILayout.Space(10);
             DrawFileList();
@@ -126,6 +131,23 @@ namespace ReplaySystem
             GUILayout.Label($"Speed: {playback.playbackSpeed:0.00}x");
             playback.playbackSpeed = GUILayout.HorizontalSlider(playback.playbackSpeed, 0.1f, 4f);
             GUI.enabled = true;
+        }
+
+        private void DrawGridControls()
+        {
+            if (grid == null)
+            {
+                GUILayout.Label("No Grid3D found in scene.");
+                return;
+            }
+
+            // Independent of playback - grid size is never recorded/replayed
+            // (only the grid's own position/rotation is), so this is safe to
+            // change at any time, including mid-scrub.
+            GUILayout.Label($"Grid Cells: {grid.columns}");
+            int newCells = Mathf.RoundToInt(GUILayout.HorizontalSlider(grid.columns, 1, 60));
+            if (newCells != grid.columns)
+                grid.SetCellCount(newCells);
         }
 
         private void DrawFileList()

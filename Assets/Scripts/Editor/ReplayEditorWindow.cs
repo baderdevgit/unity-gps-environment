@@ -12,6 +12,7 @@ public class ReplayEditorWindow : EditorWindow
 {
     private SceneRecorder _recorder;
     private ScenePlayback _playback;
+    private Grid3D _grid;
     private string _loadedFile;
     private string _statusMessage = "";
     private List<string> _availableFiles = new List<string>();
@@ -46,6 +47,7 @@ public class ReplayEditorWindow : EditorWindow
     {
         if (_recorder == null) _recorder = FindObjectOfType<SceneRecorder>();
         if (_playback == null) _playback = FindObjectOfType<ScenePlayback>();
+        if (_grid == null) _grid = FindObjectOfType<Grid3D>();
 
         if (!Application.isPlaying)
         {
@@ -56,6 +58,8 @@ public class ReplayEditorWindow : EditorWindow
         DrawRecordingControls();
         EditorGUILayout.Space(10);
         DrawPlaybackControls();
+        EditorGUILayout.Space(10);
+        DrawGridControls();
         EditorGUILayout.Space(10);
         DrawFileList();
 
@@ -131,6 +135,24 @@ public class ReplayEditorWindow : EditorWindow
         EditorGUILayout.LabelField($"Speed: {_playback.playbackSpeed:0.00}x");
         _playback.playbackSpeed = EditorGUILayout.Slider(_playback.playbackSpeed, 0.1f, 4f);
         GUI.enabled = true;
+    }
+
+    private void DrawGridControls()
+    {
+        EditorGUILayout.LabelField("Grid", EditorStyles.boldLabel);
+
+        if (_grid == null)
+        {
+            EditorGUILayout.LabelField("No Grid3D found in scene.");
+            return;
+        }
+
+        // Independent of playback - grid size (unlike rotation) is never
+        // recorded/replayed, so this is safe to change at any time,
+        // including mid-scrub, without fighting the replay system.
+        int newCells = EditorGUILayout.IntSlider("Grid Cells", _grid.columns, 1, 60);
+        if (newCells != _grid.columns)
+            _grid.SetCellCount(newCells);
     }
 
     private void DrawFileList()
